@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 import asyncio
 from datetime import datetime
 
@@ -8,100 +8,94 @@ from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-# 🔐 ЗАМЕНИ НА СВОЙ ТОКЕН
 API_TOKEN = '7214944032:AAGavGZFCbYE_FZKMDAvVxKSdt1PhP4jHno'
-# 🔔 ID группы администратора
 ADMIN_GROUP_ID = -1002772064995
 
 logging.basicConfig(level=logging.INFO)
 
-# Инициализируем бота с DefaultBotProperties (aiogram 3.21+)
 bot = Bot(
     token=API_TOKEN,
     default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
 )
-# Dispatcher без аргументов
 dp = Dispatcher()
 
-# Хранилище данных пользователя и его заказов
-user_data = {}     # { user_id: { city, category, item, price } }
-user_orders = {}   # { user_id: [ { item, city, price, time, status }, ... ] }
+user_data = {}
+user_orders = {}
 
-# --- Меню и клавиатуры ---
-
-def start_menu() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🚀 ОТКРЫТЬ МАГАЗИН", callback_data="open_shop"))
-    return kb
-
-def city_menu() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("МОСКВА", callback_data="city_Москва"),
-        InlineKeyboardButton("САНКТ-ПЕТЕРБУРГ", callback_data="city_Санкт-Петербург"),
-        InlineKeyboardButton("⬅ НАЗАД", callback_data="back_start")
+def start_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton("🚀 ОТКРЫТЬ МАГАЗИН", callback_data="open_shop")]
+        ]
     )
-    return kb
 
-def main_menu() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("🛍 КАТАЛОГ", callback_data="catalog"),
-        InlineKeyboardButton("📦 МОИ ЗАКАЗЫ", callback_data="my_orders"),
-        InlineKeyboardButton("🎮 КИНОИГРА", url="https://center-kino.github.io/game_kinoshlep/"),
-        InlineKeyboardButton("👤 ПОМОЩЬ", url="https://t.me/PRdemon")
+def city_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton("МОСКВА", callback_data="city_Москва")],
+            [InlineKeyboardButton("САНКТ-ПЕТЕРБУРГ", callback_data="city_Санкт-Петербург")],
+            [InlineKeyboardButton("⬅ НАЗАД", callback_data="back_start")]
+        ]
     )
-    return kb
 
-def catalog_menu() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("👕 ФУТБОЛКИ", callback_data="category_tshirts"),
-        InlineKeyboardButton("🧢 КЕПКИ", callback_data="category_caps"),
-        InlineKeyboardButton("🧥 ТОЛСТОВКИ", callback_data="category_hoodies"),
-        InlineKeyboardButton("🎲 НАСТОЛЬНАЯ ИГРА", callback_data="category_game"),
-        InlineKeyboardButton("⬅ НАЗАД", callback_data="main")
+def main_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton("🛍 КАТАЛОГ", callback_data="catalog")],
+            [InlineKeyboardButton("📦 МОИ ЗАКАЗЫ", callback_data="my_orders")],
+            [InlineKeyboardButton("🎮 КИНОИГРА", url="https://center-kino.github.io/game_kinoshlep/")],
+            [InlineKeyboardButton("👤 ПОМОЩЬ", url="https://t.me/PRdemon")]
+        ]
     )
-    return kb
 
-def product_menu(category: str) -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
+def catalog_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton("👕 ФУТБОЛКИ", callback_data="category_tshirts")],
+            [InlineKeyboardButton("🧢 КЕПКИ", callback_data="category_caps")],
+            [InlineKeyboardButton("🧥 ТОЛСТОВКИ", callback_data="category_hoodies")],
+            [InlineKeyboardButton("🎲 НАСТОЛЬНАЯ ИГРА", callback_data="category_game")],
+            [InlineKeyboardButton("⬅ НАЗАД", callback_data="main")]
+        ]
+    )
+
+def product_menu(category):
     items = {
         "tshirts": ["РЕЖИССЕР", "ОРИГИНАЛ", "СЦЕНАРИЙ"],
         "caps":    ["ЦК", "ЭПИЗОД", "КИНОШЛЕПКА"],
         "hoodies": ["ХУДИ 1", "ХУДИ 2", "ХУДИ 3"],
         "game":    ["СНИМИ ЕСЛИ СМОЖЕШЬ"]
     }
-    for idx, name in enumerate(items[category]):
-        kb.add(InlineKeyboardButton(name, callback_data=f"product_{category}_{idx}"))
-    kb.add(InlineKeyboardButton("⬅ НАЗАД", callback_data="catalog"))
-    return kb
+    buttons = [
+        [InlineKeyboardButton(name, callback_data=f"product_{category}_{idx}")]
+        for idx, name in enumerate(items[category])
+    ]
+    buttons.append([InlineKeyboardButton("⬅ НАЗАД", callback_data="catalog")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-def confirm_menu() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("💳 КУПИТЬ", callback_data="buy"),
-        InlineKeyboardButton("⬅ НАЗАД", callback_data="catalog")
+def confirm_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton("💳 КУПИТЬ", callback_data="buy")],
+            [InlineKeyboardButton("⬅ НАЗАД", callback_data="catalog")]
+        ]
     )
-    return kb
 
-def payment_menu() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("✅ Я ОПЛАТИЛ", callback_data="paid"),
-        InlineKeyboardButton("❌ ОТМЕНА", callback_data="main")
+def payment_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton("✅ Я ОПЛАТИЛ", callback_data="paid")],
+            [InlineKeyboardButton("❌ ОТМЕНА", callback_data="main")]
+        ]
     )
-    return kb
 
-def after_payment_menu() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("🏠 ГЛАВНОЕ МЕНЮ", callback_data="main"),
-        InlineKeyboardButton("📦 УЗНАТЬ СТАТУС", callback_data="order_status")
+def after_payment_menu():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton("🏠 ГЛАВНОЕ МЕНЮ", callback_data="main")],
+            [InlineKeyboardButton("📦 УЗНАТЬ СТАТУС", callback_data="order_status")]
+        ]
     )
-    return kb
-
-# --- Хендлеры ---
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -117,13 +111,11 @@ async def cb_handler(c: types.CallbackQuery):
     uid = c.from_user.id
     chat_id = c.message.chat.id
 
-    # Удаляем старое сообщение
     try:
         await bot.delete_message(chat_id, c.message.message_id)
     except:
         pass
 
-    # Навигация
     if data == "open_shop":
         await c.message.answer("🏙️ Выберите ваш город:", reply_markup=city_menu())
 
@@ -192,9 +184,11 @@ async def cb_handler(c: types.CallbackQuery):
             f"Пользователь: {mention}\nГород: {city}\n"
             f"Товар: {item}\nЦена: {price}₽\nВремя: {now}"
         )
-        admin_kb = InlineKeyboardMarkup(row_width=1).add(
-            InlineKeyboardButton("✅ ОПЛАЧЕНО", callback_data=f"admin_paid_{uid}_{order_idx}"),
-            InlineKeyboardButton("❌ НЕ ОПЛАЧЕНО", callback_data=f"admin_unpaid_{uid}_{order_idx}")
+        admin_kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton("✅ ОПЛАЧЕНО", callback_data=f"admin_paid_{uid}_{order_idx}")],
+                [InlineKeyboardButton("❌ НЕ ОПЛАЧЕНО", callback_data=f"admin_unpaid_{uid}_{order_idx}")]
+            ]
         )
         await bot.send_message(ADMIN_GROUP_ID, admin_text, reply_markup=admin_kb)
 
@@ -208,7 +202,6 @@ async def cb_handler(c: types.CallbackQuery):
         else:
             order["status"] = "unpaid"
             await bot.send_message(target_uid, f"❌ Ваш заказ «{order['item']}» не подтверждён. Пришлите чек.")
-        # скрываем кнопки в сообщении админа
         await bot.edit_message_reply_markup(
             chat_id=ADMIN_GROUP_ID,
             message_id=c.message.message_id,
@@ -234,8 +227,6 @@ async def cb_handler(c: types.CallbackQuery):
 
     else:
         await c.message.answer("📲 Главное меню:", reply_markup=main_menu())
-
-# --- Запуск бота ---
 
 async def main():
     await dp.start_polling(bot, skip_updates=True)
